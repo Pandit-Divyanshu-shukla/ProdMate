@@ -15,6 +15,8 @@ app.use("/auth", require("./routes/authRoutes"))
 app.use("/routines", require("./routes/routineRoutes"));
 app.use("/tasks", require("./routes/taskRoutes"));
 app.use("/reminders",require("./routes/reminderRoutes"));
+app.use("/ai", require("./routes/aiRoutes"));
+
 
 
 
