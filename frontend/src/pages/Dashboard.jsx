@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import { addRoutine, getRoutines } from "../api/routineApi";
+import TaskList from "../components/TaskList";
 import { useAuth } from "../context/AuthContext";
 
 import {
@@ -22,6 +23,9 @@ function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [activeRoutineId, setActiveRoutineId] = useState(null);
+
 
   // Fetch routines on load
   useEffect(() => {
@@ -68,6 +72,16 @@ function Dashboard() {
       alert("Failed to add routine");
     }
   };
+
+  const refreshRoutines = async () => {
+    try {
+      const data = await getRoutines(token);
+      setRoutines(data.routines || []);
+    } catch (err) {
+      console.error("Failed to refresh routines");
+    }
+  };
+
 
   return (
     <>
@@ -142,8 +156,14 @@ function Dashboard() {
           routines.map((routine) => (
             <div
               key={routine._id}
-              className="bg-white p-4 rounded shadow mb-3"
+              className="bg-white p-4 rounded shadow mb-3 cursor-pointer"
+              onClick={() =>
+                setActiveRoutineId(
+                  activeRoutineId === routine._id ? null : routine._id
+                )
+              }
             >
+
               <h2 className="font-semibold text-lg">{routine.title}</h2>
 
               <p className="text-sm text-gray-600">
@@ -162,6 +182,13 @@ function Dashboard() {
                   }}
                 />
               </div>
+                {activeRoutineId === routine._id && (
+                <TaskList
+                  routineId={routine._id}
+                  onTaskChange={refreshRoutines}
+                />
+              )}
+
             </div>
           ))}
       </div>

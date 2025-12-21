@@ -7,21 +7,25 @@ const Routine = require("../models/Routine");
 // ----------------------------------
 exports.addTask = async (req, res) => {
   try {
-    // Logged-in user id (from JWT middleware)
     const userId = req.user.id;
 
-    // Routine id comes from URL
+    // ✅ routineId MUST come from params
     const { routineId } = req.params;
 
-    // Task details from request body
-    const { title, description, priority, deadline, duration } = req.body;
+    const {
+      title,
+      description,
+      priority,
+      deadline,
+      duration,
+    } = req.body;
 
-    // Basic validation
-    if (!title) {
-      return res.status(400).json({ message: "Task title is required" });
+    if (!title || !routineId) {
+      return res.status(400).json({
+        message: "Title and routineId are required",
+      });
     }
 
-    // Create task
     const task = await Task.create({
       userId,
       routineId,
@@ -30,16 +34,22 @@ exports.addTask = async (req, res) => {
       priority,
       deadline,
       duration,
+      isCompleted: false,
     });
 
     res.status(201).json({
-      message: "Task added successfully",
+      message: "Task created successfully",
       task,
     });
+
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error("ADD TASK ERROR:", error);
+    res.status(500).json({
+      message: "Failed to create task",
+    });
   }
 };
+
 
 // ----------------------------------
 // GET ALL TASKS FOR A ROUTINE
