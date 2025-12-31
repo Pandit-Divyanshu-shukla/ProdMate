@@ -2,34 +2,43 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { toast } from "react-hot-toast";
+import Spinner from "../components/Spinner";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+
+    if (!email || !password) {
+      toast.error("Email and password are required");
+      return;
+    }
 
     try {
+      setLoading(true);
+
       const res = await api.post("/auth/login", {
         email,
         password,
       });
 
-      // Save token in context
       login(res.data.token);
+      toast.success("Login successful");
 
-      // Redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
-      setError(
+      toast.error(
         err.response?.data?.message || "Login failed"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,19 +52,12 @@ function Login() {
           Login
         </h2>
 
-        {error && (
-          <p className="text-red-500 text-sm mb-3">
-            {error}
-          </p>
-        )}
-
         <input
           type="email"
           placeholder="Email"
           className="w-full p-2 border mb-3 rounded"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          required
         />
 
         <input
@@ -64,14 +66,14 @@ function Login() {
           className="w-full p-2 border mb-4 rounded"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
         />
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white p-2 rounded flex items-center justify-center gap-2 disabled:opacity-70"
         >
-          Login
+          {loading ? <Spinner size={18} /> : "Login"}
         </button>
       </form>
     </div>

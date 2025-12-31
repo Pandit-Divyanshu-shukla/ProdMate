@@ -1,6 +1,11 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const statsRoutes = require("./routes/statsRoutes");
+const aiDataRoutes = require("./routes/aiDataRoutes");
+const aiInsightsRoutes = require("./routes/aiInsightsRoutes");
+
+
 // To Read env File
 require("dotenv").config();
 require("./services/reminderCron");
@@ -16,6 +21,14 @@ app.use("/routines", require("./routes/routineRoutes"));
 app.use("/tasks", require("./routes/taskRoutes"));
 app.use("/reminders",require("./routes/reminderRoutes"));
 app.use("/ai", require("./routes/aiRoutes"));
+app.use("/ai-data", aiDataRoutes);
+app.use("/ai-insights", aiInsightsRoutes);
+
+
+
+app.use("/stats", statsRoutes);
+
+
 
 
 
