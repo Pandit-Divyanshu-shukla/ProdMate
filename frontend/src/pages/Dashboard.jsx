@@ -3,6 +3,9 @@ import Navbar from "../components/Navbar";
 import { addRoutine, getRoutines } from "../api/routineApi";
 import TaskList from "../components/TaskList";
 import { useAuth } from "../context/AuthContext";
+import { getStats } from "../api/statsApi";
+import { toast } from "react-hot-toast";
+import Spinner from "../components/Spinner";
 
 import {
   Select,
@@ -16,25 +19,25 @@ function Dashboard() {
   const { token } = useAuth();
 
   const [routines, setRoutines] = useState([]);
+  const [stats, setStats] = useState(null);
+
   const [title, setTitle] = useState("Study");
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
+  const [addingRoutine, setAddingRoutine] = useState(false);
   const [activeRoutineId, setActiveRoutineId] = useState(null);
 
-
-  // Fetch routines on load
+  // Fetch routines
   useEffect(() => {
     const fetchRoutines = async () => {
       try {
         const data = await getRoutines(token);
         setRoutines(data.routines || []);
-      } catch (err) {
-        setError("Failed to load routines");
+      } catch {
+        toast.error("Failed to load routines");
       } finally {
         setLoading(false);
       }
@@ -44,16 +47,37 @@ function Dashboard() {
     else setLoading(false);
   }, [token]);
 
-  // Add routine handler
+  // Fetch stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await getStats(token);
+        setStats(data.stats);
+      } catch {
+        toast.error("Failed to load stats");
+      }
+    };
+
+    if (token) fetchStats();
+  }, [token]);
+
+  // Add routine
   const handleAddRoutine = async (e) => {
     e.preventDefault();
 
     if (!title || !startTime || !endTime) {
-      alert("Please fill all required fields");
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    if (startTime >= endTime) {
+      toast.error("End time must be after start time");
       return;
     }
 
     try {
+      setAddingRoutine(true);
+
       await addRoutine(token, {
         title,
         description,
@@ -62,32 +86,40 @@ function Dashboard() {
         category: title.toLowerCase(),
       });
 
-      const data = await getRoutines(token);
-      setRoutines(data.routines || []);
+      await refreshDashboard();
 
       setDescription("");
       setStartTime("");
       setEndTime("");
-    } catch (err) {
-      alert("Failed to add routine");
+
+      toast.success("Routine added successfully");
+    } catch {
+      toast.error("Failed to add routine");
+    } finally {
+      setAddingRoutine(false);
     }
   };
 
-  const refreshRoutines = async () => {
+  // Refresh routines + stats together
+  const refreshDashboard = async () => {
     try {
-      const data = await getRoutines(token);
-      setRoutines(data.routines || []);
-    } catch (err) {
-      console.error("Failed to refresh routines");
+      const [routinesData, statsData] = await Promise.all([
+        getRoutines(token),
+        getStats(token),
+      ]);
+
+      setRoutines(routinesData.routines || []);
+      setStats(statsData.stats);
+    } catch {
+      toast.error("Failed to refresh dashboard");
     }
   };
-
 
   return (
     <>
       <Navbar />
 
-      {/* ADD ROUTINE FORM */}
+      {/* ADD ROUTINE */}
       <div className="p-6 bg-gray-100">
         <form
           onSubmit={handleAddRoutine}
@@ -95,7 +127,6 @@ function Dashboard() {
         >
           <h2 className="font-semibold mb-3">Add Routine</h2>
 
-          {/* SHADCN DROPDOWN */}
           <Select value={title} onValueChange={setTitle}>
             <SelectTrigger className="mb-2">
               <SelectValue placeholder="Select routine" />
@@ -123,7 +154,6 @@ function Dashboard() {
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
             />
-
             <input
               type="time"
               className="border p-2 w-full"
@@ -134,23 +164,42 @@ function Dashboard() {
 
           <button
             type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded"
+            disabled={addingRoutine}
+            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-70"
           >
-            Add Routine
+            {addingRoutine ? <Spinner /> : "Add Routine"}
           </button>
         </form>
       </div>
+
+      {/* STATS */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 px-6">
+          {[
+            ["Routines", stats.totalRoutines],
+            ["Tasks", stats.totalTasks],
+            ["Completed", stats.completedTasks],
+            ["Completion", `${stats.completionPercentage}%`],
+            ["Done Today", stats.tasksCompletedToday],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="bg-white p-4 rounded shadow text-center"
+            >
+              <p className="text-sm text-gray-500">{label}</p>
+              <p className="text-xl font-bold">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* DASHBOARD */}
       <div className="p-6 bg-gray-100 min-h-screen">
         <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
 
         {loading && <p>Loading routines...</p>}
-        {error && <p className="text-red-500">{error}</p>}
 
-        {!loading && routines.length === 0 && (
-          <p>No routines found.</p>
-        )}
+        {!loading && routines.length === 0 && <p>No routines found.</p>}
 
         {!loading &&
           routines.map((routine) => (
@@ -163,12 +212,8 @@ function Dashboard() {
                 )
               }
             >
-
               <h2 className="font-semibold text-lg">{routine.title}</h2>
-
-              <p className="text-sm text-gray-600">
-                {routine.description}
-              </p>
+              <p className="text-sm text-gray-600">{routine.description}</p>
 
               <p className="mt-2 text-sm">
                 Completion: {routine.completionPercentage}%
@@ -182,13 +227,13 @@ function Dashboard() {
                   }}
                 />
               </div>
-                {activeRoutineId === routine._id && (
+
+              {activeRoutineId === routine._id && (
                 <TaskList
                   routineId={routine._id}
-                  onTaskChange={refreshRoutines}
+                  onTaskChange={refreshDashboard}
                 />
               )}
-
             </div>
           ))}
       </div>

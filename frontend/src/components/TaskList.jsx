@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getTasksByRoutine, addTask, updateTask } from "../api/taskApi";
+import { toast } from "react-hot-toast";
+import Spinner from "./Spinner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ function TaskList({ routineId, onTaskChange }) {
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addingTask, setAddingTask] = useState(false);
 
   // Task form states
   const [taskTitle, setTaskTitle] = useState("");
@@ -26,7 +29,7 @@ function TaskList({ routineId, onTaskChange }) {
         const data = await getTasksByRoutine(token, routineId);
         setTasks(data.tasks || []);
       } catch (err) {
-        console.error("Failed to load tasks");
+        toast.error("Failed to load tasks");
       } finally {
         setLoading(false);
       }
@@ -35,16 +38,18 @@ function TaskList({ routineId, onTaskChange }) {
     fetchTasks();
   }, [routineId, token]);
 
-  // Add new task (FULL DATA)
+  // Add new task
   const handleAddTask = async (e) => {
     e.preventDefault();
 
-    if (!taskTitle) {
-      alert("Task title is required");
+    if (!taskTitle.trim()) {
+      toast.error("Task title is required");
       return;
     }
 
     try {
+      setAddingTask(true);
+
       await addTask(token, routineId, {
         title: taskTitle,
         description,
@@ -63,9 +68,12 @@ function TaskList({ routineId, onTaskChange }) {
       const data = await getTasksByRoutine(token, routineId);
       setTasks(data.tasks || []);
 
-      onTaskChange(); // refresh routine progress
+      onTaskChange();
+      toast.success("Task added successfully");
     } catch (err) {
-      alert("Failed to add task");
+      toast.error("Failed to add task");
+    } finally {
+      setAddingTask(false);
     }
   };
 
@@ -81,7 +89,7 @@ function TaskList({ routineId, onTaskChange }) {
 
       onTaskChange();
     } catch (err) {
-      alert("Failed to update task");
+      toast.error("Failed to update task");
     }
   };
 
@@ -132,8 +140,12 @@ function TaskList({ routineId, onTaskChange }) {
           onChange={(e) => setDuration(e.target.value)}
         />
 
-        <Button type="submit" className="w-full">
-          Add Task
+        <Button
+          type="submit"
+          disabled={addingTask}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          {addingTask ? <Spinner size={16} /> : "Add Task"}
         </Button>
       </form>
 
