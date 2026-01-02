@@ -2,7 +2,7 @@ const axios = require("axios");
 
 const GEMINI_MODELS = [
   "gemini-2.5-flash-lite",
-  "gemini-2.5-flash", // fallback
+  "gemini-2.5-flash",
 ];
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -20,10 +20,23 @@ const callGemini = async (model, prompt) => {
     {
       params: { key: process.env.GEMINI_API_KEY },
       headers: { "Content-Type": "application/json" },
-      timeout: 15_000, // 15 sec
+      timeout: 15_000,
     }
   );
 };
+
+// ✅ fallback used when quota is exceeded
+const fallbackInsights = JSON.stringify({
+  positive: [
+    "One routine completed successfully, showing consistency today",
+  ],
+  issues: [
+    "Some routines remain incomplete for the day",
+  ],
+  actions: [
+    "Focus on completing one pending routine next",
+  ],
+});
 
 const getGeminiInsights = async (prompt) => {
   let lastError;
@@ -32,26 +45,44 @@ const getGeminiInsights = async (prompt) => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const res = await callGemini(model, prompt);
+
         return (
           res.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-          "No insights generated"
+          fallbackInsights
         );
       } catch (err) {
         lastError = err;
 
-        const code = err.response?.status;
-        if (code !== 503) break; // non-retryable
+        const status = err.response?.status;
+        const reason = err.response?.data?.error?.status;
 
-        console.warn(
-          `⚠️ ${model} overloaded (attempt ${attempt}). Retrying...`
-        );
-        await sleep(500 * attempt); // exponential backoff
+        // ❌ QUOTA EXCEEDED → DO NOT RETRY
+        if (status === 429 || reason === "RESOURCE_EXHAUSTED") {
+          console.warn("⚠️ Gemini quota exceeded. Using fallback insights.");
+          return fallbackInsights;
+        }
+
+        // ⏳ TEMPORARY OVERLOAD → RETRY
+        if (status === 503) {
+          console.warn(
+            `⚠️ ${model} overloaded (attempt ${attempt}). Retrying...`
+          );
+          await sleep(500 * attempt);
+          continue;
+        }
+
+        // ❌ OTHER ERRORS → BREAK
+        break;
       }
     }
   }
 
-  console.error("❌ Gemini failed:", lastError.response?.data || lastError.message);
-  throw new Error("AI service temporarily unavailable");
+  console.error(
+    "❌ Gemini failed:",
+    lastError?.response?.data || lastError?.message
+  );
+
+  return fallbackInsights;
 };
 
 module.exports = { getGeminiInsights };

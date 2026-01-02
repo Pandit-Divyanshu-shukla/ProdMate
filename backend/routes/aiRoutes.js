@@ -1,13 +1,7 @@
-const express = require("express");
-const { getProductivityInsights } = require("../controllers/aiController");
-const authMiddleware = require("../middlewares/authMiddleware");
+const router = require("express").Router();
+const auth = require("../middlewares/authMiddleware");
+const { generateInsights } = require("../controllers/aiController");
 
-const router = express.Router();
-
-// ----------------------------------
-// GET AI PRODUCTIVITY INSIGHTS
-// Protected Route (JWT required)
-// ----------------------------------
-router.get("/insights", authMiddleware, getProductivityInsights);
+router.get("/insights", auth, generateInsights);
 
 module.exports = router;
